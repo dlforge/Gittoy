@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Gittoy.csproj">
+    <Deploy />
+  </Project>
+</Solution>
