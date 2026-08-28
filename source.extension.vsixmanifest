@@ -5,7 +5,7 @@
     <DisplayName>GitToy</DisplayName>
     <Description>在编辑器光标所在行内联显示 Git blame 信息，支持悬停查看完整提交、点击复制 Commit Hash</Description>
     <Preview>true</Preview>
-    <MoreInfo>https://github.com/dlforge</MoreInfo>
+    <MoreInfo>https://github.com/dlforge/gittoy</MoreInfo>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[16.11,)">

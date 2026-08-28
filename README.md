@@ -4,6 +4,8 @@
 
 灵感来自 VS Code 的 GitLens，做成了一个轻量的 Visual Studio 插件版本。
 
+![preview.jpg](preview.jpg)
+
 ## 功能特性
 
 - **行内 blame 提示**：光标停在哪一行，行尾自动显示作者、时间、提交说明
