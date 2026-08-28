@@ -2,8 +2,6 @@
 
 在 Visual Studio 编辑器中，光标所在行自动内联显示 Git blame 信息 —— 无需切换窗口，随时知道这一行代码是谁改的、什么时候改的、为什么改。
 
-灵感来自 VS Code 的 GitLens，做成了一个轻量的 Visual Studio 插件版本。
-
 ![preview.jpg](preview.jpg)
 
 ## 功能特性
