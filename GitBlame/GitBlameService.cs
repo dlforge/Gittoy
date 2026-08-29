@@ -1,15 +1,11 @@
-﻿using Gittoy.GitBlame;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
 namespace Gittoy.GitBlame;
-
-// GitBlame/GitBlameService.cs
 public class GitBlameService
 {
     public static async Task<GitBlameInfo> GetBlameAsync(string filePath, int lineNumber1Based)

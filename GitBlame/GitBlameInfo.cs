@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Gittoy.GitBlame
 {
-    // GitBlame/GitBlameInfo.cs
     public class GitBlameInfo
     {
         public string CommitHash { get; set; }

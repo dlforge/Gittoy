@@ -3,7 +3,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Gittoy.Options; // 新增
+using Gittoy.Options;
 
 namespace Gittoy
 {
