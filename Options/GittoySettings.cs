@@ -12,7 +12,7 @@ namespace Gittoy.Options
     {
         public static Color NormalTextColor { get; set; } = Colors.Gray;
         public static Color DirtyLineTextColor { get; set; } = Colors.DarkOrange;
-        public static int DebounceDelayMs { get; set; } = 300;
+        public static int DebounceDelayMs { get; set; } = 200;
         public static bool ShowSummaryInline { get; set; } = true;
         public static string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 
@@ -20,7 +20,7 @@ namespace Gittoy.Options
         /// 设置变化时触发，供已存在的 LineBlameAdornmentManager 实例
         /// 立即刷新显示（否则要等下次光标移动才会用上新设置）。
         /// </summary>
-        public static event EventHandler SettingsChanged;
+        public static event EventHandler? SettingsChanged;
 
         public static void RaiseSettingsChanged()
         {
