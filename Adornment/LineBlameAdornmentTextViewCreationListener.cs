@@ -12,7 +12,7 @@ namespace Gittoy.Adornment
         [Name("GitToolboxBlameLayer")]
         [Order(After = PredefinedAdornmentLayers.Text)]
         [TextViewRole(PredefinedTextViewRoles.Document)]
-        public AdornmentLayerDefinition BlameAdornmentLayer = null;
+        public AdornmentLayerDefinition? BlameAdornmentLayer = null;
 
         public void TextViewCreated(IWpfTextView textView)
         {

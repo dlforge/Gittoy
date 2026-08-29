@@ -20,17 +20,14 @@ namespace Gittoy.Adornment
     internal class LineBlameAdornmentManager
     {
         private const string LayerName = "GitToolboxBlameLayer";
-
         private readonly IWpfTextView _textView;
         private readonly IAdornmentLayer _layer;
         private readonly GitBlameCache _cache = new();
-        private readonly CommitMessageCache _messageCache = new(); // 新增
+        private readonly CommitMessageCache _messageCache = new();
         private readonly ITextDocument _document;
 
         private readonly List<ITrackingPoint> _dirtyLineMarkers = new();
         private HashSet<int> _dirtyLineNumbersCache = new();
-
-        private int _lastLineNumber = -1;
         private CancellationTokenSource _debounceCts;
 
         public LineBlameAdornmentManager(IWpfTextView textView)
@@ -45,7 +42,7 @@ namespace Gittoy.Adornment
             _textView.LayoutChanged += OnLayoutChanged;
             _textView.TextBuffer.Changed += OnBufferChanged;
             _textView.Closed += OnClosed;
-            GittoySettings.SettingsChanged += OnSettingsChanged; // 新增
+            GittoySettings.SettingsChanged += OnSettingsChanged;
 
             if (_document != null)
             {
@@ -56,7 +53,7 @@ namespace Gittoy.Adornment
 
         private void OnSettingsChanged(object sender, EventArgs e)
         {
-            RequestUpdate(); // 设置变了，立即用新设置重新渲染当前行
+            RequestUpdate();
         }
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
@@ -83,7 +80,7 @@ namespace Gittoy.Adornment
 
             RebuildDirtyLineCache(newSnapshot);
 
-            RequestUpdate(); // 改成走防抖入口，而不是直接 _ = UpdateAdornmentAsync()
+            RequestUpdate();
         }
 
         private void RebuildDirtyLineCache(ITextSnapshot snapshot)
@@ -103,7 +100,7 @@ namespace Gittoy.Adornment
                 e.FileActionType == FileActionTypes.DocumentRenamed)
             {
                 _cache.InvalidateFile(e.FilePath);
-                _cache.EnsurePrefetchStarted(e.FilePath); // 新增：保存后立即重新预取整份文件
+                _cache.EnsurePrefetchStarted(e.FilePath);
 
                 _dirtyLineMarkers.Clear();
                 _dirtyLineNumbersCache.Clear();
@@ -114,12 +111,12 @@ namespace Gittoy.Adornment
 
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
-            RequestUpdate(); // 改成走防抖入口
+            RequestUpdate();
         }
 
         private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
-            RequestUpdate(); // 改成走防抖入口
+            RequestUpdate();
         }
 
         private void RequestUpdate()
@@ -135,7 +132,7 @@ namespace Gittoy.Adornment
         {
             try
             {
-                await Task.Delay(GittoySettings.DebounceDelayMs, token); // 改成读设置
+                await Task.Delay(GittoySettings.DebounceDelayMs, token);
                 if (token.IsCancellationRequested) return;
 
                 await UpdateAdornmentAsync();
@@ -154,7 +151,7 @@ namespace Gittoy.Adornment
             string? filePath = _document?.FilePath;
             if (string.IsNullOrEmpty(filePath)) return;
 
-            var blame = await _cache.GetOrFetchAsync(filePath, lineNumber1Based);
+            var blame = await _cache.GetOrFetchAsync(filePath!, lineNumber1Based);
             if (blame == null) return;
 
             if (_textView.Caret.Position.BufferPosition.GetContainingLine().LineNumber != snapshotLine.LineNumber)
@@ -171,8 +168,8 @@ namespace Gittoy.Adornment
         private void RenderAdornment(ITextViewLine line, GitBlameInfo blame, bool isLineDirty)
         {
             string shortText = GittoySettings.ShowSummaryInline
-        ? blame.ToShortText()
-        : $"{blame.Author}, {blame.AuthorTime:yyyy-MM-dd}"; // 不显示 summary 时的简化版本
+                ? blame.ToShortText() 
+                : $"{blame.Author}, {blame.AuthorTime:yyyy-MM-dd}";
 
             string text = isLineDirty
                 ? $"  ⚠ {shortText} (此行有未保存的更改)"
@@ -230,44 +227,7 @@ namespace Gittoy.Adornment
                 try { Clipboard.SetText(blame.CommitHash); } catch { /* 剪贴板偶尔会被占用，忽略 */ }
             };
             menu.Items.Add(copyHashItem);
-
-            var copyMessageItem = new MenuItem { Header = "复制提交说明" };
-            copyMessageItem.Click += (s, e) =>
-            {
-                try { Clipboard.SetText(blame.Summary); } catch { }
-            };
-            menu.Items.Add(copyMessageItem);
-
-            var openInBrowserItem = new MenuItem { Header = "在浏览器中查看" };
-            openInBrowserItem.Click += async (s, e) => await OpenCommitInBrowserAsync(blame);
-            menu.Items.Add(openInBrowserItem);
-
             return menu;
-        }
-
-        private async Task OpenCommitInBrowserAsync(GitBlameInfo blame)
-        {
-            string? filePath = _document?.FilePath;
-            if (string.IsNullOrEmpty(filePath)) return;
-
-            string workingDir = Path.GetDirectoryName(filePath);
-            string url = await GitBlameService.GetCommitWebUrlAsync(workingDir, blame.CommitHash);
-
-            if (string.IsNullOrEmpty(url))
-            {
-                MessageBox.Show("未能识别远程仓库地址，无法在浏览器中打开。",
-                    "GitToolbox", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            try
-            {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            }
-            catch
-            {
-                // 打开浏览器失败(极少见)，静默忽略
-            }
         }
 
         /// <summary>
@@ -340,7 +300,7 @@ namespace Gittoy.Adornment
             _textView.LayoutChanged -= OnLayoutChanged;
             _textView.TextBuffer.Changed -= OnBufferChanged;
             _textView.Closed -= OnClosed;
-            GittoySettings.SettingsChanged -= OnSettingsChanged; // 新增
+            GittoySettings.SettingsChanged -= OnSettingsChanged;
 
             if (_document != null)
                 _document.FileActionOccurred -= OnFileActionOccurred;
