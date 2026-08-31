@@ -208,7 +208,7 @@ namespace Gittoy.Adornment
                 text = blame.ToShortText();
                 cursor = Cursors.Hand;
             }
-            var normalBrush = new SolidColorBrush(GittoySettings.NormalTextColor);
+            var normalBrush = new SolidColorBrush(GittoySettings.TextColor);
             var textBlock = new TextBlock
             {
                 Text = text,

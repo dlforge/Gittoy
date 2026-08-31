@@ -10,7 +10,7 @@ namespace Gittoy.Options
     /// </summary>
     public static class GittoySettings
     {
-        public static Color NormalTextColor { get; set; } = Colors.Gray;
+        public static Color TextColor { get; set; } = Colors.Gray;
         public static string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 
         /// <summary>

@@ -7,12 +7,12 @@ namespace Gittoy.Options
     public class GittoyOptionPage : DialogPage
     {
         [Category("外观")]
-        [DisplayName("正常文本颜色")]
-        [Description("blame 信息在没有未保存改动时的显示颜色")]
-        public Color NormalTextColor
+        [DisplayName("文本颜色")]
+        [Description("blame 信息的显示颜色")]
+        public Color TextColor
         {
-            get => GittoySettings.NormalTextColor;
-            set => GittoySettings.NormalTextColor = value;
+            get => GittoySettings.TextColor;
+            set => GittoySettings.TextColor = value;
         }
 
         [Category("外观")]
