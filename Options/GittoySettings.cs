@@ -11,9 +11,6 @@ namespace Gittoy.Options
     public static class GittoySettings
     {
         public static Color NormalTextColor { get; set; } = Colors.Gray;
-        public static Color DirtyLineTextColor { get; set; } = Colors.DarkOrange;
-        public static int DebounceDelayMs { get; set; } = 200;
-        public static bool ShowSummaryInline { get; set; } = true;
         public static string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 
         /// <summary>

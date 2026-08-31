@@ -41,6 +41,33 @@ public class GitBlameService
         }
     }
 
+    public static async Task<bool> HasUncommittedChangesAsync(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            return false;
+
+        string workingDir = Path.GetDirectoryName(filePath);
+        string fileName = Path.GetFileName(filePath);
+
+        if (string.IsNullOrEmpty(workingDir))
+            return false;
+
+        try
+        {
+            string output = await RunGitCommandAsync(
+                workingDir,
+                $"status --porcelain -- \"{fileName}\"");
+
+            return !string.IsNullOrWhiteSpace(output);
+        }
+        catch
+        {
+            // git 不可用、不是仓库、进程调用失败等场景，保守返回 false
+            // （宁可退化成显示真实 blame，也不要因为异常挂掉整个渲染流程）
+            return false;
+        }
+    }
+
     private static GitBlameInfo ParsePorcelain(string output)
     {
         if (string.IsNullOrWhiteSpace(output)) return null;

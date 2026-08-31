@@ -12,7 +12,7 @@ namespace Gittoy.GitBlame
         // 防止同一个文件的预取任务被并发触发多次（比如快速连续移动光标）
         private readonly ConcurrentDictionary<string, Task> _prefetchTasks = new();
 
-        public async Task<GitBlameInfo> GetOrFetchAsync(string filePath, int line)
+        public async Task<GitBlameInfo?> GetOrFetchAsync(string filePath, int line)
         {
             // 已经预取完成，直接查表，零额外开销
             if (_fileCache.TryGetValue(filePath, out var lineDict))
@@ -30,7 +30,7 @@ namespace Gittoy.GitBlame
         /// </summary>
         public void EnsurePrefetchStarted(string filePath)
         {
-            _prefetchTasks.GetOrAdd(filePath, PrefetchFileAsync);
+            _prefetchTasks.GetOrAdd(filePath, _ => PrefetchFileAsync(filePath));
         }
 
         private async Task PrefetchFileAsync(string filePath)

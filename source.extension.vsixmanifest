@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="Gittoy.84e2f5f4-a96c-4973-9788-1d77f65936c6" Version="0.1.2" Language="zh-CN" Publisher="DL" />
+    <Identity Id="Gittoy.84e2f5f4-a96c-4973-9788-1d77f65936c6" Version="0.2.1" Language="zh-CN" Publisher="DL" />
     <DisplayName>GitToy</DisplayName>
-    <Description>Gittoy is a lightweight Git productivity extension for Visual Studio.</Description>
+    <Description>Gittoy is a git blame extension for Visual Studio.</Description>
     <Preview>true</Preview>
     <MoreInfo>https://github.com/dlforge/gittoy</MoreInfo>
   </Metadata>

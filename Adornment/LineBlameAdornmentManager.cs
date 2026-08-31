@@ -4,8 +4,6 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -14,84 +12,57 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Gittoy.Adornment
 {
-    internal class LineBlameAdornmentManager
+    internal sealed class LineBlameAdornmentManager
     {
-        private const string LayerName = "GitToolboxBlameLayer";
         private readonly IWpfTextView _textView;
         private readonly IAdornmentLayer _layer;
         private readonly GitBlameCache _cache = new();
         private readonly CommitMessageCache _messageCache = new();
         private readonly ITextDocument _document;
 
-        private readonly List<ITrackingPoint> _dirtyLineMarkers = new();
-        private HashSet<int> _dirtyLineNumbersCache = new();
+        // 基准快照：代表"最后一次已知与磁盘内容一致"的版本。
+        // 文件打开时、每次保存后都会更新为当时的快照。
+        // 判断某一行是否为脏行，靠把当前行位置映射回这个快照做内容比较，
+        // 而不是记录"有没有发生过编辑"，这样撤销、手动改回原样等
+        // 任何让内容恢复一致的方式都能被正确识别。
+        private ITextSnapshot _baselineSnapshot;
         private CancellationTokenSource _debounceCts;
+        private DateTime? _lastEditTime;
+        private long _updateGeneration = 0;
 
         public LineBlameAdornmentManager(IWpfTextView textView)
         {
             _textView = textView;
-            _layer = textView.GetAdornmentLayer(LayerName);
+            _layer = textView.GetAdornmentLayer(LineBlameConst.LayerName);
 
             _textView.TextBuffer.Properties.TryGetProperty(
                 typeof(ITextDocument), out _document);
+
+            if(_document == null)
+            {
+                return;
+            }
+
+            _baselineSnapshot = _textView.TextBuffer.CurrentSnapshot;
+            _ = RefreshUncommittedStatusAsync(_document.FilePath);
 
             _textView.Caret.PositionChanged += OnCaretPositionChanged;
             _textView.LayoutChanged += OnLayoutChanged;
             _textView.TextBuffer.Changed += OnBufferChanged;
             _textView.Closed += OnClosed;
             GittoySettings.SettingsChanged += OnSettingsChanged;
-
-            if (_document != null)
-            {
-                _document.FileActionOccurred += OnFileActionOccurred;
-                _cache.EnsurePrefetchStarted(_document.FilePath);
-            }
+            _document.FileActionOccurred += OnFileActionOccurred;
+            _cache.EnsurePrefetchStarted(_document.FilePath);
         }
 
-        private void OnSettingsChanged(object sender, EventArgs e)
-        {
-            RequestUpdate();
-        }
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            var newSnapshot = e.After;
-
-            foreach (var change in e.Changes)
-            {
-                int startPos = change.NewSpan.Start;
-                int endPos = change.NewSpan.End;
-
-                int startLine = newSnapshot.GetLineNumberFromPosition(startPos);
-                int endLine = endPos > startPos
-                    ? newSnapshot.GetLineNumberFromPosition(endPos - 1)
-                    : startLine;
-
-                for (int i = startLine; i <= endLine; i++)
-                {
-                    var line = newSnapshot.GetLineFromLineNumber(i);
-                    var trackingPoint = newSnapshot.CreateTrackingPoint(
-                        line.Start.Position, PointTrackingMode.Negative);
-                    _dirtyLineMarkers.Add(trackingPoint);
-                }
-            }
-
-            RebuildDirtyLineCache(newSnapshot);
-
+            _lastEditTime = DateTime.Now;
             RequestUpdate();
-        }
-
-        private void RebuildDirtyLineCache(ITextSnapshot snapshot)
-        {
-            var result = new HashSet<int>();
-            foreach (var marker in _dirtyLineMarkers)
-            {
-                var point = marker.GetPoint(snapshot);
-                result.Add(point.GetContainingLine().LineNumber);
-            }
-            _dirtyLineNumbersCache = result;
         }
 
         private void OnFileActionOccurred(object sender, TextDocumentFileActionEventArgs e)
@@ -100,13 +71,14 @@ namespace Gittoy.Adornment
                 e.FileActionType == FileActionTypes.DocumentRenamed)
             {
                 _cache.InvalidateFile(e.FilePath);
-                _cache.EnsurePrefetchStarted(e.FilePath);
-
-                _dirtyLineMarkers.Clear();
-                _dirtyLineNumbersCache.Clear();
-
+                _baselineSnapshot = _textView.TextBuffer.CurrentSnapshot;
+                _ = RefreshUncommittedStatusAsync(e.FilePath);
                 RequestUpdate();
             }
+        }
+        private async Task RefreshUncommittedStatusAsync(string filePath)
+        {
+            RequestUpdate();
         }
 
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
@@ -119,91 +91,148 @@ namespace Gittoy.Adornment
             RequestUpdate();
         }
 
+        private void OnSettingsChanged(object sender, EventArgs e)
+        {
+            RequestUpdate();
+        }
+
         private void RequestUpdate()
         {
             _debounceCts?.Cancel();
             _debounceCts?.Dispose();
             _debounceCts = new CancellationTokenSource();
             var token = _debounceCts.Token;
-
-            _ = DebouncedUpdateAsync(token);
+            long generation = Interlocked.Increment(ref _updateGeneration);
+            _ = DebouncedUpdateAsync(token, generation);
         }
-        private async Task DebouncedUpdateAsync(CancellationToken token)
+
+        private async Task DebouncedUpdateAsync(CancellationToken token, long generation)
         {
             try
             {
-                await Task.Delay(GittoySettings.DebounceDelayMs, token);
                 if (token.IsCancellationRequested) return;
-
-                await UpdateAdornmentAsync();
+                await UpdateAdornmentAsync(generation);
             }
             catch (TaskCanceledException) { }
         }
+        private bool IsLatest(long generation) => generation == Interlocked.Read(ref _updateGeneration);
 
-        private async Task UpdateAdornmentAsync()
+        private async Task UpdateAdornmentAsync(long generation)
         {
-            _layer.RemoveAllAdornments();
-
             var caretPoint = _textView.Caret.Position.BufferPosition;
             var snapshotLine = caretPoint.GetContainingLine();
-            int lineNumber1Based = snapshotLine.LineNumber + 1;
-
-            string? filePath = _document?.FilePath;
-            if (string.IsNullOrEmpty(filePath)) return;
-
-            var blame = await _cache.GetOrFetchAsync(filePath!, lineNumber1Based);
-            if (blame == null) return;
-
-            if (_textView.Caret.Position.BufferPosition.GetContainingLine().LineNumber != snapshotLine.LineNumber)
-                return;
 
             var viewLine = _textView.GetTextViewLineContainingBufferPosition(caretPoint);
             if (viewLine == null) return;
 
-            bool isLineDirty = _dirtyLineNumbersCache.Contains(snapshotLine.LineNumber);
+            if (IsLineContentChanged(snapshotLine))
+            {
+                return;
+            }
 
-            RenderAdornment(viewLine, blame, isLineDirty);
+            string filePath = GetFilePath();
+            if (string.IsNullOrEmpty(filePath)) return;
+
+            int lineNumber1Based = snapshotLine.LineNumber + 1;
+            var blame = await _cache.GetOrFetchAsync(filePath, lineNumber1Based);
+            if (blame == null) return;
+
+            var currentSnapshotLine = _textView.Caret.Position.BufferPosition.GetContainingLine();
+            if (currentSnapshotLine.LineNumber != snapshotLine.LineNumber)
+                return;
+
+            if (IsLineContentChanged(currentSnapshotLine))
+                return;
+
+            if (!IsLatest(generation)) return;
+
+            _layer.RemoveAllAdornments();
+            RenderAdornment(viewLine, blame);
         }
 
-        private void RenderAdornment(ITextViewLine line, GitBlameInfo blame, bool isLineDirty)
+        private static string FormatRelativeTime(DateTime time)
         {
-            string shortText = GittoySettings.ShowSummaryInline
-                ? blame.ToShortText() 
-                : $"{blame.Author}, {blame.AuthorTime:yyyy-MM-dd}";
+            var elapsed = DateTime.Now - time;
+            if (elapsed.TotalSeconds < 60) return "刚刚";
+            if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes} 分钟前";
+            if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours} 小时前";
+            return $"{(int)elapsed.TotalDays} 天前";
+        }
 
-            string text = isLineDirty
-                ? $"  ⚠ {shortText} (此行有未保存的更改)"
-                : $"  {shortText}";
+        /// <summary>
+        /// 判断当前行的内容，是否和基准快照（最后一次已知与磁盘一致的版本）
+        /// 里"同一位置"的行内容不同。用位置映射而不是裸行号比较，
+        /// 这样即使前面插入/删除了整行导致行号偏移，依然能对应到正确的原始行。
+        /// </summary>
+        private bool IsLineContentChanged(ITextSnapshotLine currentLine)
+        {
+            if (_baselineSnapshot == null) return false;
+            if (_baselineSnapshot == currentLine.Snapshot) return false; // 快照都没变过，必然一致
 
+            var currentSnapshot = currentLine.Snapshot;
+
+            // 把当前行的起始位置，映射到基准快照上对应的位置
+            var trackingPoint = currentSnapshot.CreateTrackingPoint(
+                currentLine.Start.Position, PointTrackingMode.Negative);
+
+            SnapshotPoint baselinePoint;
+            try
+            {
+                baselinePoint = trackingPoint.GetPoint(_baselineSnapshot);
+            }
+            catch
+            {
+                return true;
+            }
+
+            var baselineLine = baselinePoint.GetContainingLine();
+
+            string currentText = currentLine.GetText();
+            string baselineText = baselineLine.GetText();
+
+            return currentText != baselineText;
+        }
+
+        private void RenderAdornment(ITextViewLine line, GitBlameInfo blame)
+        {
+            string? text = default;
+            Cursor? cursor = default;
+            if (blame.IsUncommitted)
+            {
+                string relativeTime = FormatRelativeTime(_lastEditTime ?? DateTime.Now);
+                text = $"You, {relativeTime} · 未提交的更改";
+                cursor = Cursors.Arrow;
+            }
+            else
+            {
+                text = blame.ToShortText();
+                cursor = Cursors.Hand;
+            }
             var normalBrush = new SolidColorBrush(GittoySettings.NormalTextColor);
-            var dirtyBrush = new SolidColorBrush(GittoySettings.DirtyLineTextColor);
-
             var textBlock = new TextBlock
             {
                 Text = text,
-                Foreground = isLineDirty ? dirtyBrush : normalBrush,
-                FontSize = _textView.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize - 1,
-                Cursor = blame.IsUncommitted ? Cursors.Arrow : Cursors.Hand,
-                FontFamily = _textView.FormattedLineSource.DefaultTextProperties.Typeface.FontFamily,
+                Foreground = normalBrush,
+                FontSize = _textView.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize,
+                Cursor = cursor,
+                Background = Brushes.Transparent,
+                FontFamily = _textView.FormattedLineSource.DefaultTextProperties.Typeface.FontFamily
             };
 
             var toolTip = new ToolTip { Content = "加载中..." };
             textBlock.ToolTip = toolTip;
-            toolTip.Opened += async (s, e) => await LoadTooltipContentAsync(toolTip, blame, isLineDirty).ConfigureAwait(false);
+            toolTip.Opened += (s, e) => _ = OnToolTipOpenedAsync(toolTip, blame);
 
             if (!blame.IsUncommitted)
             {
                 textBlock.MouseLeftButtonDown += (s, e) => OnBlameLeftClick(textBlock, blame);
-                textBlock.ContextMenu = BuildContextMenu(blame);
             }
 
             textBlock.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
 
             double startX = Math.Max(line.TextRight, _textView.Caret.Left);
-
-            Canvas.SetLeft(textBlock, startX);
+            Canvas.SetLeft(textBlock, startX + 60);
             Canvas.SetTop(textBlock, line.TextTop);
-
             _layer.AddAdornment(
                 AdornmentPositioningBehavior.TextRelative,
                 new SnapshotSpan(line.Start, line.End),
@@ -212,67 +241,26 @@ namespace Gittoy.Adornment
                 removedCallback: null);
         }
 
-        private void OnBlameLeftClick(TextBlock textBlock, GitBlameInfo blame)
-        {
-            CopyToClipboardWithFeedback(textBlock, blame.CommitHash, "已复制 hash");
-        }
-
-        private ContextMenu BuildContextMenu(GitBlameInfo blame)
-        {
-            var menu = new ContextMenu();
-
-            var copyHashItem = new MenuItem { Header = "复制 commit hash" };
-            copyHashItem.Click += (s, e) =>
-            {
-                try { Clipboard.SetText(blame.CommitHash); } catch { /* 剪贴板偶尔会被占用，忽略 */ }
-            };
-            menu.Items.Add(copyHashItem);
-            return menu;
-        }
-
-        /// <summary>
-        /// 复制内容到剪贴板，并短暂改变文本颜色/内容作为视觉反馈，
-        /// 避免用户点击后不知道有没有生效。
-        /// </summary>
-        private void CopyToClipboardWithFeedback(TextBlock textBlock, string content, string feedbackText)
+        private async Task OnToolTipOpenedAsync(ToolTip toolTip, GitBlameInfo blame)
         {
             try
             {
-                Clipboard.SetText(content);
+                await LoadTooltipContentAsync(toolTip, blame);
             }
-            catch
+            catch (Exception ex)
             {
-                return; // 剪贴板访问失败，不做反馈，避免误导
+                toolTip.Content = "加载提交信息失败";
             }
-
-            string originalText = textBlock.Text;
-            var originalBrush = textBlock.Foreground;
-
-            textBlock.Text = "  ✓ " + feedbackText;
-            textBlock.Foreground = Brushes.LimeGreen;
-
-            var timer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(1200)
-            };
-            timer.Tick += (s, e) =>
-            {
-                timer.Stop();
-                textBlock.Text = originalText;
-                textBlock.Foreground = originalBrush;
-            };
-            timer.Start();
         }
 
-        private async Task LoadTooltipContentAsync(ToolTip toolTip, GitBlameInfo blame, bool isLineDirty)
+        private async Task LoadTooltipContentAsync(ToolTip toolTip, GitBlameInfo blame)
         {
             if (blame.IsUncommitted)
             {
-                toolTip.Content = "此行尚未提交";
                 return;
             }
 
-            string? filePath = _document?.FilePath;
+            string filePath = GetFilePath();
             string? workingDir = string.IsNullOrEmpty(filePath) ? null : Path.GetDirectoryName(filePath);
 
             string? fullMessage = workingDir != null
@@ -285,13 +273,44 @@ namespace Gittoy.Adornment
             sb.AppendLine($"时间: {blame.AuthorTime.ToString(GittoySettings.DateTimeFormat)}");
             sb.AppendLine();
             sb.Append(!string.IsNullOrWhiteSpace(fullMessage) ? fullMessage : blame.Summary);
-
-            if (isLineDirty)
-                sb.Append("\n\n⚠ 此行有未保存的更改，以上信息可能不是最新");
-
-            // 此时代码运行在 UI 线程的事件回调里（await 之后 WPF 会自动切回 UI 线程），
-            // 直接赋值是安全的
             toolTip.Content = sb.ToString();
+        }
+
+        private void OnBlameLeftClick(TextBlock textBlock, GitBlameInfo blame)
+        {
+            CopyToClipboardWithFeedback(textBlock, blame.CommitHash, "已复制 hash");
+        }
+
+        private void CopyToClipboardWithFeedback(TextBlock textBlock, string content, string feedbackText)
+        {
+            try
+            {
+                Clipboard.SetText(content);
+            }
+            catch
+            {
+                return;
+            }
+
+            string originalText = textBlock.Text;
+            var originalBrush = textBlock.Foreground;
+
+            textBlock.Text = "  ✓ " + feedbackText;
+            textBlock.Foreground = Brushes.LimeGreen;
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                textBlock.Text = originalText;
+                textBlock.Foreground = originalBrush;
+            };
+            timer.Start();
+        }
+
+        private string GetFilePath()
+        {
+            return _document.FilePath;
         }
 
         private void OnClosed(object sender, EventArgs e)

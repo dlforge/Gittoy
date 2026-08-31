@@ -9,7 +9,7 @@ namespace Gittoy.Adornment
     internal class LineBlameAdornmentTextViewCreationListener : IWpfTextViewCreationListener
     {
         [Export(typeof(AdornmentLayerDefinition))]
-        [Name("GitToolboxBlameLayer")]
+        [Name(LineBlameConst.LayerName)]
         [Order(After = PredefinedAdornmentLayers.Text)]
         [TextViewRole(PredefinedTextViewRoles.Document)]
         public AdornmentLayerDefinition? BlameAdornmentLayer = null;
