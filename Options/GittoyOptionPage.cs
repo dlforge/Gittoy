@@ -23,6 +23,15 @@ namespace Gittoy.Options
             get => GittoySettings.DateTimeFormat;
             set => GittoySettings.DateTimeFormat = value;
         }
+        
+        [Category("外观")]
+        [DisplayName("在行内显示摘要")]
+        [Description("是否在代码行内显示提交摘要信息")]
+        public bool ShowSummaryInline
+        {
+            get => GittoySettings.ShowSummaryInline;
+            set => GittoySettings.ShowSummaryInline = value;
+        }
 
         /// <summary>
         /// 用户点击"确定"/"应用"关闭选项对话框时触发，

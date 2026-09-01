@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace Gittoy.Options
@@ -13,15 +14,37 @@ namespace Gittoy.Options
         public static Color TextColor { get; set; } = Colors.Gray;
         public static string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 
+        public static bool ShowBlameMargin { get; set; } = true;
+
         /// <summary>
         /// 设置变化时触发，供已存在的 LineBlameAdornmentManager 实例
         /// 立即刷新显示（否则要等下次光标移动才会用上新设置）。
         /// </summary>
         public static event EventHandler? SettingsChanged;
+        private static GittoyOptionPage? Page =>
+           (GittoyOptionPage?)GittoyPackage.Instance?.GetDialogPage(typeof(GittoyOptionPage));
 
         public static void RaiseSettingsChanged()
         {
             SettingsChanged?.Invoke(null, EventArgs.Empty);
         }
+
+        
+        public static bool ShowSummaryInline
+        {
+            get => Page?.ShowSummaryInline ?? true;
+            set
+            {
+                var page = Page;
+                if (page == null || page.ShowSummaryInline == value) return;
+
+                page.ShowSummaryInline = value;
+                page.SaveSettingsToStorage();
+                NotifyChanged();
+            }
+        }
+
+        internal static void NotifyChanged() =>
+            SettingsChanged?.Invoke(null, EventArgs.Empty);
     }
 }
