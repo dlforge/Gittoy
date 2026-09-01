@@ -14,6 +14,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Gittoy.Margin
 {
@@ -53,11 +54,15 @@ namespace Gittoy.Margin
         /// Margin 的默认宽度。可以根据需要调整，但应确保足够显示 commit hash 和摘要信息。
         /// </summary>
         private const double DefaultWidth = 160;
-        private const double ThumbWidth = 2;
+        private const double ThumbWidth = 4;
         private readonly Thumb _resizeThumb;
         private readonly Canvas _contentCanvas;
+        private readonly DispatcherTimer _redrawTimer;
+        private bool _redrawPending;
         private bool _isVisible;
         private double _storedWidth = DefaultWidth;
+        private Brush _committedTextBrush = Brushes.Transparent;
+        private Brush _uncommittedTextBrush = Brushes.Transparent;
 
         /// <summary>
         /// 用于缓存 commit message 的对象，避免频繁调用 git 命令获取相同的提交信息。
@@ -77,22 +82,31 @@ namespace Gittoy.Margin
             {
                 Cursor = Cursors.SizeWE,
                 Background = GetThumbIdleBrush(),
+                BorderBrush = GetThumbIdleBrush(),
+                BorderThickness = new Thickness(1),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 Foreground = GetThumbIdleBrush()
             };
             SetColumn(_contentCanvas, 0);
             Children.Add(_contentCanvas);
-            _resizeThumb.MouseEnter += (s, e) => ApplyThumbBrush(GetThumbHoverBrush());
-            _resizeThumb.MouseLeave += (s, e) => ApplyThumbBrush(GetThumbIdleBrush());
+            _resizeThumb.MouseEnter += (s, e) => ApplyThumbBrush(GetThumbHoverBrush(), 2);
+            _resizeThumb.MouseLeave += (s, e) => ApplyThumbBrush(GetThumbIdleBrush(), 1);
             _resizeThumb.DragDelta += OnResizeThumbDragDelta;
             SetColumn(_resizeThumb, 1);
             Children.Add(_resizeThumb);
+
+            _redrawTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(50)
+            };
+            _redrawTimer.Tick += OnRedrawTimerTick;
 
             _isVisible = GittoySettings.ShowBlameMargin;
             Visibility = _isVisible ? Visibility.Visible : Visibility.Collapsed;
             Width = ClampWidth(DefaultWidth);
             _storedWidth = Width;
+            RefreshTextBrushes();
 
             _textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out _document);
             if (_document == null)
@@ -109,16 +123,18 @@ namespace Gittoy.Margin
 
         private void OnResizeThumbDragDelta(object sender, DragDeltaEventArgs e)
         {
-            ApplyThumbBrush(GetThumbDragBrush());
+            ApplyThumbBrush(GetThumbDragBrush(), 2);
             _storedWidth = ClampWidth(Width + e.HorizontalChange);
             Width = _storedWidth;
         }
 
         private static double ClampWidth(double width) => Math.Max(100, Math.Min(400, width));
 
-        private void ApplyThumbBrush(Brush brush)
+        private void ApplyThumbBrush(Brush brush, double borderThickness)
         {
             _resizeThumb.Background = brush;
+            _resizeThumb.BorderBrush = brush;
+            _resizeThumb.BorderThickness = new Thickness(borderThickness);
             _resizeThumb.Foreground = brush;
         }
 
@@ -155,12 +171,13 @@ namespace Gittoy.Margin
 
         private void OnSettingsChanged(object sender, EventArgs e)
         {
+            RefreshTextBrushes();
             Redraw();
         }
 
         private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
-            Redraw();
+            ScheduleRedraw();
         }
 
         /// <summary>
@@ -246,6 +263,47 @@ namespace Gittoy.Margin
             return new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
         }
 
+        private void RefreshTextBrushes()
+        {
+            _committedTextBrush = CreateFrozenBrush(Color.FromArgb(190, GittoySettings.TextColor.R, GittoySettings.TextColor.G, GittoySettings.TextColor.B));
+            _uncommittedTextBrush = CreateFrozenBrush(Color.FromArgb(235, Colors.DarkOrange.R, Colors.DarkOrange.G, Colors.DarkOrange.B));
+        }
+
+        private static Brush CreateFrozenBrush(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            if (brush.CanFreeze)
+            {
+                brush.Freeze();
+            }
+
+            return brush;
+        }
+
+        private void ScheduleRedraw()
+        {
+            if (!_isVisible || _document == null)
+            {
+                return;
+            }
+
+            _redrawPending = true;
+            _redrawTimer.Stop();
+            _redrawTimer.Start();
+        }
+
+        private void OnRedrawTimerTick(object? sender, EventArgs e)
+        {
+            _redrawTimer.Stop();
+            if (!_redrawPending)
+            {
+                return;
+            }
+
+            _redrawPending = false;
+            Redraw();
+        }
+
         private void Redraw()
         {
             _contentCanvas.Children.Clear();
@@ -285,22 +343,41 @@ namespace Gittoy.Margin
                 if (!viewLine.IsValid) continue;
 
                 int lineNumber = currentSnapshot.GetLineNumberFromPosition(viewLine.Start.Position);
-                var foreground = new SolidColorBrush(GittoySettings.TextColor);
-                if (lineNumberToInfo.TryGetValue(lineNumber, out var info) && !info.IsUncommitted)
+                if (lineNumberToInfo.TryGetValue(lineNumber, out var info))
                 {
+                    bool isUncommitted = info.IsUncommitted;
                     var textBlock = new TextBlock
                     {
                         Text = info.ToShortText(),
-                        FontSize = _textView.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize - 1,
+                        FontSize = _textView.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize - 2,
                         FontFamily = _textView.FormattedLineSource.DefaultTextProperties.Typeface.FontFamily,
-                        FontStyle = _textView.FormattedLineSource.DefaultTextProperties.Typeface.Style,
-                        FontWeight = _textView.FormattedLineSource.DefaultTextProperties.Typeface.Weight,
-                        Foreground = foreground
+                        FontStyle = isUncommitted ? FontStyles.Italic : _textView.FormattedLineSource.DefaultTextProperties.Typeface.Style,
+                        FontWeight = isUncommitted ? FontWeights.SemiBold : _textView.FormattedLineSource.DefaultTextProperties.Typeface.Weight,
+                        Foreground = isUncommitted ? _uncommittedTextBrush : _committedTextBrush,
+                        Opacity = isUncommitted ? 1.0 : 0.82
                     };
 
-                    var toolTip = new ToolTip { Content = "加载中..." };
+                    var toolTip = new ToolTip { Content = isUncommitted ? "未提交的更改" : "加载中..." };
+                    ToolTipService.SetInitialShowDelay(textBlock, 600);
+                    ToolTipService.SetBetweenShowDelay(textBlock, 200);
                     textBlock.ToolTip = toolTip;
-                    toolTip.Opened += (s, e) => _ = OnToolTipOpenedAsync(toolTip, info);
+                    if (!isUncommitted)
+                    {
+                        var toolTipLoadCts = new CancellationTokenSource();
+                        var toolTipLoadToken = toolTipLoadCts.Token;
+                        var toolTipClosed = 0;
+                        toolTip.Opened += (s, e) => _ = OnToolTipOpenedAsync(toolTip, info, toolTipLoadToken);
+                        toolTip.Closed += (s, e) =>
+                        {
+                            if (Interlocked.Exchange(ref toolTipClosed, 1) != 0)
+                            {
+                                return;
+                            }
+
+                            toolTipLoadCts.Cancel();
+                            toolTipLoadCts.Dispose();
+                        };
+                    }
 
                     Canvas.SetLeft(textBlock, 6);
                     Canvas.SetTop(textBlock, viewLine.Top - _textView.ViewportTop);
@@ -315,11 +392,20 @@ namespace Gittoy.Margin
         /// <param name="toolTip"></param>
         /// <param name="blame"></param>
         /// <returns></returns>
-        private async Task OnToolTipOpenedAsync(ToolTip toolTip, GitBlameInfo blame)
+        private async Task OnToolTipOpenedAsync(ToolTip toolTip, GitBlameInfo blame, CancellationToken cancellationToken)
         {
             try
             {
-                await LoadTooltipContentAsync(toolTip, blame);
+                await Task.Delay(220, cancellationToken);
+                if (cancellationToken.IsCancellationRequested || !toolTip.IsOpen)
+                {
+                    return;
+                }
+
+                await LoadTooltipContentAsync(toolTip, blame, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch
             {
@@ -333,9 +419,9 @@ namespace Gittoy.Margin
         /// <param name="toolTip"></param>
         /// <param name="blame"></param>
         /// <returns></returns>
-        private async Task LoadTooltipContentAsync(ToolTip toolTip, GitBlameInfo blame)
+        private async Task LoadTooltipContentAsync(ToolTip toolTip, GitBlameInfo blame, CancellationToken cancellationToken)
         {
-            if (blame.IsUncommitted)
+            if (blame.IsUncommitted || cancellationToken.IsCancellationRequested)
             {
                 return;
             }
@@ -348,6 +434,10 @@ namespace Gittoy.Margin
             }
 
             string? fullMessage = await _messageCache.GetOrFetchAsync(workingDir, blame.CommitHash);
+            if (cancellationToken.IsCancellationRequested || !toolTip.IsOpen)
+            {
+                return;
+            }
 
             var sb = new StringBuilder();
             sb.AppendLine($"提交: {blame.CommitHash}");
@@ -383,8 +473,14 @@ namespace Gittoy.Margin
             _textView.Closed -= OnClosed;
             GittoySettings.SettingsChanged -= OnSettingsChanged;
             _document?.FileActionOccurred -= OnFileActionOccurred;
-            _loadCts?.Cancel();
-            _loadCts?.Dispose();
+            _redrawTimer.Stop();
+            _redrawTimer.Tick -= OnRedrawTimerTick;
+            if (_loadCts != null)
+            {
+                _loadCts.Cancel();
+                _loadCts.Dispose();
+                _loadCts = null;
+            }
         }
 
         private sealed class TrackedBlameLine(ITrackingPoint trackingPoint, GitBlameInfo info)

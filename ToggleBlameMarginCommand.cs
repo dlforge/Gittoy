@@ -1,4 +1,5 @@
 ﻿using Gittoy.Margin;
+using Gittoy.Options;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
@@ -15,28 +16,29 @@ namespace Gittoy
     internal sealed class ToggleBlameMarginCommand
     {
         public const int CommandId = 0x0100;
+        public const int LineCommandId = 0x0101;
         public static readonly Guid CommandSet = new Guid("cb3426c6-7223-4c1e-9237-bd29c501a0f7");
 
         private readonly AsyncPackage package;
         private readonly IVsTextManager textManager;
         private readonly IVsEditorAdaptersFactoryService editorAdaptersFactory;
-        private readonly OleMenuCommand menuCommand;
+        private readonly IVsStatusbar? statusBar;
 
         private ToggleBlameMarginCommand(
             AsyncPackage package,
             OleMenuCommandService commandService,
             IVsTextManager textManager,
-            IVsEditorAdaptersFactoryService editorAdaptersFactory)
+            IVsEditorAdaptersFactoryService editorAdaptersFactory,
+            IVsStatusbar? statusBar)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.textManager = textManager ?? throw new ArgumentNullException(nameof(textManager));
             this.editorAdaptersFactory = editorAdaptersFactory ?? throw new ArgumentNullException(nameof(editorAdaptersFactory));
+            this.statusBar = statusBar;
             commandService = commandService ?? throw new ArgumentNullException(nameof(commandService));
 
-            var menuCommandID = new CommandID(CommandSet, CommandId);
-            menuCommand = new OleMenuCommand(Execute, menuCommandID);
-            menuCommand.BeforeQueryStatus += OnBeforeQueryStatus;
-            commandService.AddCommand(menuCommand);
+            CreateCommand(commandService, CommandId);
+            CreateCommand(commandService, LineCommandId);
         }
 
         public static ToggleBlameMarginCommand? Instance { get; private set; }
@@ -47,9 +49,18 @@ namespace Gittoy
 
             var commandService = await package.GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
             var textManager = await package.GetServiceAsync(typeof(SVsTextManager)) as IVsTextManager;
+            var statusBar = await package.GetServiceAsync(typeof(SVsStatusbar)) as IVsStatusbar;
             var componentModel = await package.GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
             var editorAdaptersFactory = componentModel?.GetService<IVsEditorAdaptersFactoryService>();
-            Instance = new ToggleBlameMarginCommand(package, commandService, textManager!, editorAdaptersFactory!);
+            Instance = new ToggleBlameMarginCommand(package, commandService, textManager!, editorAdaptersFactory!, statusBar);
+        }
+
+        private void CreateCommand(OleMenuCommandService commandService, int commandId)
+        {
+            var menuCommandID = new CommandID(CommandSet, commandId);
+            var command = new OleMenuCommand(Execute, menuCommandID);
+            command.BeforeQueryStatus += OnBeforeQueryStatus;
+            commandService.AddCommand(command);
         }
 
         private void OnBeforeQueryStatus(object sender, EventArgs e)
@@ -60,20 +71,27 @@ namespace Gittoy
                 return;
             }
 
-            command.Visible = TryGetActiveMargin(out var margin);
-            command.Enabled = command.Visible;
-            command.Text = margin?.IsVisible == true ? "隐藏 Git blame" : "显示 Git blame";
+            command.Visible = true;
+            command.Enabled = TryGetActiveTextView();
+            command.Text = TryGetActiveMargin(out var margin) && margin.IsVisible ? "隐藏 Git blame 侧边栏" : "显示 Git blame 侧边栏";
         }
 
         private void Execute(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!TryGetActiveMargin(out var margin))
+            if (TryGetActiveMargin(out var margin))
             {
+                margin.SetVisible(!margin.IsVisible);
+                ShowStatusMessage(margin.IsVisible ? "已显示 Git blame 侧边栏" : "已隐藏 Git blame 侧边栏");
                 return;
             }
 
-            margin.SetVisible(!margin.IsVisible);
+            if (TryGetActiveTextView())
+            {
+                GittoySettings.ShowBlameMargin = true;
+                GittoySettings.NotifyChanged();
+                ShowStatusMessage("已显示 Git blame 侧边栏");
+            }
         }
 
         private bool TryGetActiveMargin(out GittoyBlameMargin? margin)
@@ -88,6 +106,18 @@ namespace Gittoy
             }
 
             return textView.Properties.TryGetProperty(typeof(GittoyBlameMargin), out margin);
+        }
+
+        private bool TryGetActiveTextView()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            return GetActiveTextView() != null;
+        }
+
+        private void ShowStatusMessage(string message)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            statusBar?.SetText(message);
         }
 
         private IWpfTextView? GetActiveTextView()

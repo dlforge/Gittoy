@@ -39,6 +39,9 @@
       <Group guid="guidGittoyPackageCmdSet" id="MyMenuGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
       </Group>
+      <Group guid="guidGittoyPackageCmdSet" id="MyLineMenuGroup" priority="0x0601">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_EDITOR_ALL"/>
+      </Group>
     </Groups>
 
     <!--Buttons section. -->
@@ -54,12 +57,20 @@
           If you do not want an image next to your command, remove the Icon node /> -->
       <Button guid="guidGittoyPackageCmdSet" id="ToggleBlameMarginCommandId" priority="0x0100" type="Button">
         <Parent guid="guidGittoyPackageCmdSet" id="MyMenuGroup" />
-        <Icon guid="guidImages" id="bmpPic1" />
+        <CommandFlag>TextChanges</CommandFlag>
         <Strings>
-          <ButtonText>切换 Git blame</ButtonText>
+          <ButtonText>显示 Git blame 侧边栏</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidGittoyPackageCmdSet" id="ToggleBlameMarginLineCommandId" priority="0x0101" type="Button">
+        <Parent guid="guidGittoyPackageCmdSet" id="MyLineMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>显示 Git blame 侧边栏</ButtonText>
         </Strings>
       </Button>
     </Buttons>
+
 
     <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
     <Bitmaps>
@@ -79,7 +90,9 @@
     <!-- This is the guid used to group the menu commands together -->
     <GuidSymbol name="guidGittoyPackageCmdSet" value="{cb3426c6-7223-4c1e-9237-bd29c501a0f7}">
       <IDSymbol name="MyMenuGroup" value="0x1020" />
+      <IDSymbol name="MyLineMenuGroup" value="0x1021" />
       <IDSymbol name="ToggleBlameMarginCommandId" value="0x0100" />
+      <IDSymbol name="ToggleBlameMarginLineCommandId" value="0x0101" />
     </GuidSymbol>
 
     <GuidSymbol name="guidImages" value="{ca197eca-cd7b-4c0f-9503-660a327711ba}" >
