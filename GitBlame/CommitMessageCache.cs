@@ -11,10 +11,13 @@ namespace Gittoy.GitBlame
     /// </summary>
     public class CommitMessageCache
     {
-        private readonly ConcurrentDictionary<string, string> _cache = new();
+        private readonly ConcurrentDictionary<string, string?> _cache = new();
 
-        public async Task<string> GetOrFetchAsync(string workingDir, string commitHash)
+        public async Task<string?> GetOrFetchAsync(string workingDir, string? commitHash)
         {
+            if (commitHash == null)
+                return null;
+
             if (_cache.TryGetValue(commitHash, out var cached))
                 return cached;
 

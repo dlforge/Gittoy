@@ -18,6 +18,7 @@ namespace Gittoy.Adornment
 {
     internal sealed class LineBlameAdornmentManager
     {
+        public const string LayerName = "GittoyBlameLayer";
         private readonly IWpfTextView _textView;
         private readonly IAdornmentLayer _layer;
         private readonly GitBlameCache _cache = new();
@@ -37,7 +38,7 @@ namespace Gittoy.Adornment
         public LineBlameAdornmentManager(IWpfTextView textView)
         {
             _textView = textView;
-            _layer = textView.GetAdornmentLayer(LineBlameConst.LayerName);
+            _layer = textView.GetAdornmentLayer(LayerName);
 
             _textView.TextBuffer.Properties.TryGetProperty(
                 typeof(ITextDocument), out _document);
@@ -278,7 +279,7 @@ namespace Gittoy.Adornment
 
         private void OnBlameLeftClick(TextBlock textBlock, GitBlameInfo blame)
         {
-            CopyToClipboardWithFeedback(textBlock, blame.CommitHash, "已复制 hash");
+            CopyToClipboardWithFeedback(textBlock, blame.CommitHash!, "已复制 hash");
         }
 
         private void CopyToClipboardWithFeedback(TextBlock textBlock, string content, string feedbackText)

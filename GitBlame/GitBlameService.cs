@@ -4,11 +4,18 @@ using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Threading;
 
 namespace Gittoy.GitBlame;
 public class GitBlameService
 {
-    public static async Task<GitBlameInfo> GetBlameAsync(string filePath, int lineNumber1Based)
+    /// <summary>
+    /// 获取指定文件指定行的 blame 信息。
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="lineNumber1Based">行号（从 1 开始）</param>
+    /// <returns>返回对应行的 GitBlameInfo，如果文件不存在或发生错误则返回 null</returns>
+    public static async Task<GitBlameInfo?> GetBlameAsync(string filePath, int lineNumber1Based)
     {
         if (!File.Exists(filePath)) return null;
 
@@ -41,40 +48,20 @@ public class GitBlameService
         }
     }
 
-    public static async Task<bool> HasUncommittedChangesAsync(string filePath)
-    {
-        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            return false;
-
-        string workingDir = Path.GetDirectoryName(filePath);
-        string fileName = Path.GetFileName(filePath);
-
-        if (string.IsNullOrEmpty(workingDir))
-            return false;
-
-        try
-        {
-            string output = await RunGitCommandAsync(
-                workingDir,
-                $"status --porcelain -- \"{fileName}\"");
-
-            return !string.IsNullOrWhiteSpace(output);
-        }
-        catch
-        {
-            // git 不可用、不是仓库、进程调用失败等场景，保守返回 false
-            // （宁可退化成显示真实 blame，也不要因为异常挂掉整个渲染流程）
-            return false;
-        }
-    }
-
-    private static GitBlameInfo ParsePorcelain(string output)
+    /// <summary>
+    /// 解析 git blame --porcelain 输出，提取出 commit hash、author、author-time、summary 等信息。
+    /// </summary>
+    /// <param name="output">git blame --porcelain 输出内容</param>
+    /// <returns>返回解析后的 GitBlameInfo，如果解析失败则返回 null</returns>
+    private static GitBlameInfo? ParsePorcelain(string output)
     {
         if (string.IsNullOrWhiteSpace(output)) return null;
 
         var lines = output.Split('\n');
-        var info = new GitBlameInfo();
-        info.CommitHash = lines[0].Split(' ')[0];
+        var info = new GitBlameInfo
+        {
+            CommitHash = lines[0].Split(' ')[0]
+        };
 
         long authorTimeUnix = 0;
         foreach (var line in lines)
@@ -90,7 +77,13 @@ public class GitBlameService
         return info;
     }
 
-    public static async Task<string> GetFullCommitMessageAsync(string workingDir, string commitHash)
+    /// <summary>
+    /// 获取指定 commit 的完整提交信息（commit message）。
+    /// </summary>
+    /// <param name="workingDir"></param>
+    /// <param name="commitHash"></param>
+    /// <returns></returns>
+    public static async Task<string?> GetFullCommitMessageAsync(string workingDir, string commitHash)
     {
         if (string.IsNullOrEmpty(commitHash) || commitHash.StartsWith("0000000"))
             return null;
@@ -119,75 +112,13 @@ public class GitBlameService
             return null;
         }
     }
-    public static async Task<string> GetCommitWebUrlAsync(string workingDir, string commitHash)
-    {
-        if (string.IsNullOrEmpty(commitHash) || commitHash.StartsWith("0000000"))
-            return null;
 
-        string remoteUrl = await RunGitCommandAsync(workingDir, "remote get-url origin");
-        if (string.IsNullOrWhiteSpace(remoteUrl)) return null;
-
-        remoteUrl = remoteUrl.Trim();
-        string httpsUrl = ConvertToHttpsUrl(remoteUrl);
-        if (httpsUrl == null) return null;
-
-        return $"{httpsUrl}/commit/{commitHash}";
-    }
-
-    private static string ConvertToHttpsUrl(string remoteUrl)
-    {
-        // SSH 格式: git@github.com:user/repo.git
-        if (remoteUrl.StartsWith("git@"))
-        {
-            var withoutPrefix = remoteUrl.Substring(4); // 去掉 "git@"
-            var colonIndex = withoutPrefix.IndexOf(':');
-            if (colonIndex < 0) return null;
-
-            var host = withoutPrefix.Substring(0, colonIndex);
-            var path = withoutPrefix.Substring(colonIndex + 1);
-            if (path.EndsWith(".git")) path = path.Substring(0, path.Length - 4);
-
-            return $"https://{host}/{path}";
-        }
-
-        // HTTPS 格式: https://github.com/user/repo.git
-        if (remoteUrl.StartsWith("https://") || remoteUrl.StartsWith("http://"))
-        {
-            var url = remoteUrl;
-            if (url.EndsWith(".git")) url = url.Substring(0, url.Length - 4);
-            return url;
-        }
-
-        return null; // 其他格式(比如本地路径)不支持
-    }
-
-    private static async Task<string> RunGitCommandAsync(string workingDir, string arguments)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "git",
-            Arguments = arguments,
-            WorkingDirectory = workingDir,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8
-        };
-
-        try
-        {
-            using var process = Process.Start(psi);
-            string output = await process.StandardOutput.ReadToEndAsync();
-            await Task.Run(() => process.WaitForExit(3000));
-            return output;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-    public static async Task<Dictionary<int, GitBlameInfo>> GetBlameForWholeFileAsync(string filePath)
+    /// <summary>
+    /// 一次性获取整个文件所有行的 blame 信息。
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <returns></returns>
+    public static async Task<Dictionary<int, GitBlameInfo>?> GetBlameForWholeFileAsync(string filePath)
     {
         if (!File.Exists(filePath)) return null;
 

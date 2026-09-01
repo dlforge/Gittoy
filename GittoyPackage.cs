@@ -9,17 +9,28 @@ namespace Gittoy
 {
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(GittoyPackage.PackageGuidString)]
-    // 新增：注册 Options 页面。
-    // "Gittoy" 是左侧树的一级分类名，"常规" 是二级页面名，
-    // 两个 0 是资源 ID（不用本地化资源时填 0 即可）
     [ProvideOptionPage(typeof(GittoyOptionPage), "Gittoy", "常规", 0, 0, true)]
+    [ProvideMenuResource("Menus.ctmenu", 1)]
     public sealed class GittoyPackage : AsyncPackage
     {
         public const string PackageGuidString = "de34e480-a2a7-4ec3-be13-6c548f0509b4";
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
+            Instance = this;
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            await ToggleBlameMarginCommand.InitializeAsync(this);
+        }
+
+        public static GittoyPackage? Instance { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Instance = null;
+            }
+            base.Dispose(disposing);
         }
     }
 }
