@@ -76,15 +76,15 @@ namespace Gittoy.Margin
             _resizeThumb = new Thumb
             {
                 Cursor = Cursors.SizeWE,
-                Background = Brushes.Transparent,   // 平时透明，不占视觉存在感
+                Background = GetThumbIdleBrush(),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                Foreground = Brushes.Gray
+                Foreground = GetThumbIdleBrush()
             };
             SetColumn(_contentCanvas, 0);
             Children.Add(_contentCanvas);
-            _resizeThumb.MouseEnter += (s, e) => _resizeThumb.Background = GetThumbHoverBrush();
-            _resizeThumb.MouseLeave += (s, e) => _resizeThumb.Background = Brushes.Transparent;
+            _resizeThumb.MouseEnter += (s, e) => ApplyThumbBrush(GetThumbHoverBrush());
+            _resizeThumb.MouseLeave += (s, e) => ApplyThumbBrush(GetThumbIdleBrush());
             _resizeThumb.DragDelta += OnResizeThumbDragDelta;
             SetColumn(_resizeThumb, 1);
             Children.Add(_resizeThumb);
@@ -109,16 +109,18 @@ namespace Gittoy.Margin
 
         private void OnResizeThumbDragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (_resizeThumb.Background != GetThumbDragBrush())
-            {
-                // 拖拽中给更明显的反馈色
-                _resizeThumb.Background = GetThumbDragBrush();
-            }
+            ApplyThumbBrush(GetThumbDragBrush());
             _storedWidth = ClampWidth(Width + e.HorizontalChange);
             Width = _storedWidth;
         }
 
         private static double ClampWidth(double width) => Math.Max(100, Math.Min(400, width));
+
+        private void ApplyThumbBrush(Brush brush)
+        {
+            _resizeThumb.Background = brush;
+            _resizeThumb.Foreground = brush;
+        }
 
         internal bool IsVisible => _isVisible;
 
@@ -226,6 +228,12 @@ namespace Gittoy.Margin
             _isLoading = false;
             Redraw();
         }
+        private static Brush GetThumbIdleBrush()
+        {
+            var color = VSColorTheme.GetThemedColor(EnvironmentColors.ScrollBarThumbBackgroundColorKey);
+            return new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
+        }
+
         private static Brush GetThumbHoverBrush()
         {
             var color = VSColorTheme.GetThemedColor(EnvironmentColors.ScrollBarThumbMouseOverBackgroundColorKey);
