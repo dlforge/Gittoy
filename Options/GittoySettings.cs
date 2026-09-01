@@ -14,7 +14,10 @@ namespace Gittoy.Options
         public static Color TextColor { get; set; } = Colors.Gray;
         public static string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 
-        public static bool ShowBlameMargin { get; set; } = true;
+        /// <summary>
+        /// 默认不显示 Blame Margin，用户可以通过菜单命令切换显示。
+        /// </summary>
+        public static bool ShowBlameMargin { get; set; } = false;
 
         /// <summary>
         /// 设置变化时触发，供已存在的 LineBlameAdornmentManager 实例
