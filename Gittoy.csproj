@@ -13,11 +13,21 @@
   <ItemGroup>
     <None Remove="GittoyPackage.vsct" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="LICENSE">
+		<IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+  </ItemGroup>
   <ItemGroup>
     <ProjectCapability Include="CreateVsixContainer" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.SDK.Analyzers" Version="17.7.122">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.9.820" />
     <PackageReference Include="System.ComponentModel.Composition" Version="10.0.11" />
   </ItemGroup>

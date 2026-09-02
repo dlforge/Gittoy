@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="Gittoy.84e2f5f4-a96c-4973-9788-1d77f65936c6" Version="0.2.3" Language="zh-CN" Publisher="DL" />
+    <Identity Id="Gittoy.84e2f5f4-a96c-4973-9788-1d77f65936c6" Version="0.2.4" Language="zh-CN" Publisher="DL" />
     <DisplayName>GitToy</DisplayName>
-    <Description>Gittoy is a git blame extension for Visual Studio.</Description>
+    <Description>Visual Studio 的 Git 扩展，包含编辑器行内 Git blame。EN:  Git tools for Visual Studio, including inline Git blame and more.</Description>
     <Preview>true</Preview>
-    <MoreInfo>https://github.com/dlforge/gittoy</MoreInfo>
+    <MoreInfo>https://github.com/dlforge/Gittoy#readme</MoreInfo>
+    <License>LICENSE</License>
+    <Icon>assets\icon.png</Icon>
+    <PreviewImage>assets\preview.jpg</PreviewImage>
+    <Tags>Git, Git Blame, Source Control, Developer Tool</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
