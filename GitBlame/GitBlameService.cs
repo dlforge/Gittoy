@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Threading;
 
-namespace Gittoy.GitBlame;
+namespace GitBlameForVs.GitBlame;
 public class GitBlameService
 {
     /// <summary>

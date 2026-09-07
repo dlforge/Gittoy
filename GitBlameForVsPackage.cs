@@ -3,15 +3,13 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Gittoy.Options;
 
-namespace Gittoy
+namespace GitBlameForVs
 {
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [Guid(GittoyPackage.PackageGuidString)]
-    [ProvideOptionPage(typeof(GittoyOptionPage), "Gittoy", "常规", 0, 0, true)]
+    [Guid(PackageGuidString)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    public sealed class GittoyPackage : AsyncPackage
+    public sealed class GitBlameForVsPackage : AsyncPackage
     {
         public const string PackageGuidString = "de34e480-a2a7-4ec3-be13-6c548f0509b4";
 
@@ -19,10 +17,9 @@ namespace Gittoy
         {
             Instance = this;
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await ToggleBlameMarginCommand.InitializeAsync(this);
         }
 
-        public static GittoyPackage? Instance { get; private set; }
+        public static GitBlameForVsPackage? Instance { get; private set; }
 
         protected override void Dispose(bool disposing)
         {

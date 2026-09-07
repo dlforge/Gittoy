@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
-namespace Gittoy.Adornment
+namespace GitBlameForVs.Adornment
 {
     [Export(typeof(IWpfTextViewCreationListener))]
     [ContentType("text")]

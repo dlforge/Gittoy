@@ -1,5 +1,4 @@
-﻿using Gittoy.GitBlame;
-using Gittoy.Options;
+﻿using GitBlameForVs.GitBlame;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
@@ -14,11 +13,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
-namespace Gittoy.Adornment
+namespace GitBlameForVs.Adornment
 {
     internal sealed class LineBlameAdornmentManager
     {
-        public const string LayerName = "GittoyBlameLayer";
+        public const string LayerName = "GitBlameForVsBlameLayer";
         private readonly IWpfTextView _textView;
         private readonly IAdornmentLayer _layer;
         private readonly GitBlameCache _cache = new();
@@ -55,7 +54,6 @@ namespace Gittoy.Adornment
             _textView.LayoutChanged += OnLayoutChanged;
             _textView.TextBuffer.Changed += OnBufferChanged;
             _textView.Closed += OnClosed;
-            GittoySettings.SettingsChanged += OnSettingsChanged;
             _document.FileActionOccurred += OnFileActionOccurred;
             _cache.EnsurePrefetchStarted(_document.FilePath);
         }
@@ -209,7 +207,7 @@ namespace Gittoy.Adornment
                 text = blame.ToShortText();
                 cursor = Cursors.Hand;
             }
-            var normalBrush = new SolidColorBrush(GittoySettings.TextColor);
+            var normalBrush = new SolidColorBrush(Colors.Gray);
             var textBlock = new TextBlock
             {
                 Text = text,
@@ -277,7 +275,7 @@ namespace Gittoy.Adornment
             var sb = new StringBuilder();
             sb.AppendLine($"提交: {blame.CommitHash}");
             sb.AppendLine($"作者: {blame.Author}");
-            sb.AppendLine($"时间: {blame.AuthorTime.ToString(GittoySettings.DateTimeFormat)}");
+            sb.AppendLine($"时间: {blame.AuthorTime.ToString("yyyy-MM-dd HH:mm:ss")}");
             sb.AppendLine();
             sb.Append(!string.IsNullOrWhiteSpace(fullMessage) ? fullMessage : blame.Summary);
             toolTip.Content = sb.ToString();
@@ -326,7 +324,6 @@ namespace Gittoy.Adornment
             _textView.LayoutChanged -= OnLayoutChanged;
             _textView.TextBuffer.Changed -= OnBufferChanged;
             _textView.Closed -= OnClosed;
-            GittoySettings.SettingsChanged -= OnSettingsChanged;
 
             if (_document != null)
                 _document.FileActionOccurred -= OnFileActionOccurred;

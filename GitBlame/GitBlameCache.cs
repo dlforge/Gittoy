@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Gittoy.GitBlame
+namespace GitBlameForVs.GitBlame
 {
     public class GitBlameCache
     {

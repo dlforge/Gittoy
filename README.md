@@ -1,4 +1,4 @@
-# Gittoy
+# Git Blame For Visual Studio
 
 在 Visual Studio 编辑器中，光标所在行自动内联显示 Git blame 信息 —— 无需切换窗口，随时知道这一行代码是谁改的、什么时候改的、为什么改。
 
@@ -17,9 +17,9 @@
 - 打开的项目需要是一个 Git 仓库
 
 ## 3 种安装方式
-- 1、通过插件市场，搜索 Gittoy 安装
+- 1、通过插件市场，搜索 GitBlameForVs 安装
 - 2、前往 Releases 页面，下载最 .vsix 手动安装
-- 3、源码编译，生成产物在 `bin\Release\Gittoy.vsix`
+- 3、源码编译，生成产物在 `bin\Release\GitBlameForVs.vsix`
 
 ## 许可协议
 

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Gittoy.GitBlame
+namespace GitBlameForVs.GitBlame
 {
     public class GitBlameInfo
     {

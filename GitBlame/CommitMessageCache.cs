@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading.Tasks;
 
-namespace Gittoy.GitBlame
+namespace GitBlameForVs.GitBlame
 {
     /// <summary>
     /// 按 commit hash 缓存完整提交说明。
