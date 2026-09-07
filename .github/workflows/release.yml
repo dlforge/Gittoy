@@ -55,7 +55,7 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart("v")
 
           $source = "${{ steps.vsix.outputs.path }}"
-          $target = Join-Path (Split-Path $source) "Gittoy-$version.vsix"
+          $target = Join-Path (Split-Path $source) "GitBlameForVs-$version.vsix"
 
           Move-Item $source $target
 
