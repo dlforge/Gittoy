@@ -1,4 +1,4 @@
-name: Release GitToy
+name: Release GitBlameForVs
 
 on:
   push:
