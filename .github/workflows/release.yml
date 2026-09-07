@@ -23,10 +23,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore .\Gittoy.csproj
+        run: dotnet restore .\GitBlameForVs.csproj
 
       - name: Build
-        run: dotnet build .\Gittoy.csproj --configuration Release --no-restore
+        run: dotnet build .\GitBlameForVs.csproj --configuration Release --no-restore
 
       - name: Find VSIX
         id: vsix
