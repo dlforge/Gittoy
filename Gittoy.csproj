@@ -21,6 +21,9 @@
 	  <Content Include="assets\icon.png">
 		  <IncludeInVSIX>true</IncludeInVSIX>
 	  </Content>
+	  <Content Include="assets\preview.gif">
+		  <IncludeInVSIX>true</IncludeInVSIX>
+	  </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectCapability Include="CreateVsixContainer" />
