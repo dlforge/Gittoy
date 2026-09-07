@@ -2,15 +2,13 @@
 
 在 Visual Studio 编辑器中，光标所在行自动内联显示 Git blame 信息 —— 无需切换窗口，随时知道这一行代码是谁改的、什么时候改的、为什么改。
 
-![preview.jpg](preview.jpg)
+![preview](assets/preview.gif)
 
 ## 功能特性
 
 - **行内 blame 提示**：光标停在哪一行，行尾自动显示作者、时间、提交说明
-- **悬停查看完整信息**：鼠标悬停在 blame 文本上，弹出完整 commit hash、作者、精确时间、完整提交说明（懒加载，不影响性能）
-- **点击交互**：
-  - 左键单击：复制 commit hash，带视觉反馈
-- **保存自动刷新**：文件保存后自动清理缓存并重新拉取 blame 信息
+- **悬停查看完整信息**：鼠标悬停在 blame 文本上，弹出完整 commit hash、作者、精确时间、完整提交说明
+- **左键单击**：复制 commit hash，带视觉反馈
 
 ## 环境要求
 
@@ -18,43 +16,10 @@
 - 本机已安装 Git，并确保 `git` 命令在系统 PATH 中可用
 - 打开的项目需要是一个 Git 仓库
 
-### 方式一：插件市场安装（推荐）
-打开 Visual Studio，进入 扩展 → 管理扩展
-搜索 Gittoy
-点击"下载"，关闭 Visual Studio 后会自动完成安装
-
-也可以直接在浏览器中打开 Visual Studio Marketplace 上的 Gittoy 页面 点击"Download"安装。
-
-这种方式支持在"管理扩展"里自动检测并提示新版本更新，无需手动下载文件，是最省心的安装方式。
-
-### 方式二：下载 .vsix 手动安装
-前往 Releases 页面下载最新的 Gittoy.vsix
-关闭所有 Visual Studio 窗口
-双击 .vsix 文件，按向导完成安装
-重新打开 Visual Studio 即可生效
-
-适合无法访问插件市场，或者想安装特定历史版本的场景。
-
-### 方式三：源码编译
-
-```bash
-git clone https://github.com/dlforge/Gittoy.git
-```
-
-用 Visual Studio 打开 `Gittoy.sln`，切换到 `Release` 配置，重新生成解决方案，生成产物在 `bin\Release\Gittoy.vsix`。
-
-## 使用说明
-
-安装完成后，打开任意 Git 仓库中的代码文件，将光标移动到任意一行即可看到 blame 信息。首次打开较大的文件时，后台预取整份历史可能需要一两秒，完成后响应会非常流畅。
-
-### 自定义设置
-
-打开 **工具 → 选项 → Gittoy → 常规**，可以调整：
-
-| 选项 | 说明 |
-|---|---|
-| 文本颜色 | blame 信息默认显示颜色 |
-| 时间格式 | 悬停提示中提交时间的显示格式 |
+## 3 种安装方式
+- 1、通过插件市场，搜索 Gittoy 安装
+- 2、前往 Releases 页面，下载最 .vsix 手动安装
+- 3、源码编译，生成产物在 `bin\Release\Gittoy.vsix`
 
 ## 许可协议
 

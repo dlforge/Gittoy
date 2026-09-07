@@ -220,7 +220,13 @@ namespace Gittoy.Adornment
                 FontFamily = _textView.FormattedLineSource.DefaultTextProperties.Typeface.FontFamily
             };
 
-            var toolTip = new ToolTip { Content = "加载中..." };
+            var toolTip = new ToolTip
+            {
+                Content = "加载中...",
+                FontFamily = _textView.FormattedLineSource.DefaultTextProperties.Typeface.FontFamily,
+                FontSize = _textView.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize,
+                BorderThickness = new Thickness(1),
+            };
             textBlock.ToolTip = toolTip;
             toolTip.Opened += (s, e) => _ = OnToolTipOpenedAsync(toolTip, blame);
 
